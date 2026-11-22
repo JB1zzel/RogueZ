@@ -1,0 +1,159 @@
+Rogue for the Z88 - step 3: the banking plan
+============================================
+Rogue is C compiled by sccz80.  Compiled C passes pointers to strings,
+tables and variables freely, so the plan keeps all data mapped all the time
+and switches only code.  Everything below is measured (z88dk 2.5, sccz80 -O3)
+and made by the scripts in tools/; "sh tools/bankplan.sh" redoes it.
+
+(Step 4 changed the segments: code banks are switched in S2 and the
+application bank, with all resident code, stays in S3.  See Z88.txt.)
+
+Memory map (first plan)
+  S3  $C000-$FFFF  code banks, switched by far calls.  A module's string
+                   literals stay in its own bank (they are only read while
+                   that bank is bound - see "The string rule").
+  S2  $8000-$BFFF  one fixed card bank, always bound: resident code, the
+                   shared tables, the library, the far-call stubs.
+  S1  $4000-$7FFF  one RAM bank (Os_Mal): game variables.
+  S0  $2000-$3FFF  application RAM: more variables, far-call stack.
+
+Code banks (tools/banks.py; module code + its own strings, bytes)
+  bank 0  15.0K  command, misc, main, armor, daemon
+  bank 1  14.0K  fight, rip, save
+  bank 2  15.1K  pack+things (must share a bank, see below), init, weapons,
+                 new_level
+  bank 3  15.4K  chase, move, rooms, monsters
+  bank 4   9.9K  sticks, scrolls, zview, wizard
+  bank 5  13.7K  potions, options, passages, daemons, rings
+  Total 83.1K in 6 banks, 15.4K free between them.  Card: 6 code banks + S2
+  bank + the application bank = 8 banks = a 128K card.
+  The split was chosen to minimise far calls in recorded play (6 bot games
+  and 8 random-key games, 58,000 keys, 2.6 million function calls, from an
+  instrumented Linux build: tools/calltrace/run.sh).  Far calls: 1.0% of all
+  calls, about 0.47 per key.  The most frequent are once a turn: command ->
+  do_move, and the daemons (runners, doctor, stomach) through function
+  pointers.
+
+S2, the fixed bank (bytes)
+  resident code    5,824  io.c, zcurses.c, list.c, md.c, resident.c
+  shared tables    3,629  extern.c constants: monster table, name tables,
+                          and every string whose address is kept in a
+                          variable (potion colours, ring stones, wand woods)
+  library          3,160  measured: z88dk 2.4 +z88, everything Rogue calls
+                          except the file I/O, printf and sscanf of the Unix
+                          score/save code (6,030 with them)
+  far-call stubs     968  121 x 8 bytes
+  farcall            ~80
+  total          ~13,700  of 16,384: 2.7K free (plus the OZ save code).
+                          Levers if needed: 6-byte stubs (-240), a small
+                          vsprintf for Rogue's few formats, moving tables
+                          into the bank of their only user.
+
+RAM (bytes)
+  initialised data   3,047  (its first values are copied from the card)
+  zeroed data       16,426  the level map 5,760; monster/object pool 4,900;
+                            Rogue's 80x24 screen 1,920; composed Z88 screen
+                            752; rooms, passages, buffers
+  heap              ~2,800  scratch window hw (24 x 94) 2,256; scroll names
+  far-call stack       105  32 nested far calls
+  stack             ~1,500  guess; dig() recursion for mazes is the deepest
+  total            ~23,900  against 16K (S1) + 8K (application RAM) = 24K:
+                            tight.  Levers that do not change the game:
+                            hw window 24 x 80 or 8 x 94 plus a map view of
+                            stdscr (-0.3 to -1.5K); pool 100 -> 80 items
+                            (-0.9K); MAXSTR 128 -> 80 (-0.5K); home and
+                            file_name are not needed on the Z88 (-0.25K);
+                            composing straight to OZ instead of a screen
+                            buffer (-0.75K).  About 3.5K in all.
+
+What changed in the game to get here (all checked: the bot and 24,000
+random keys over 6 dungeons give identical screens before and after)
+  level map    24 rows instead of 32 (MAXLINES), 3 bytes a cell: the monster
+               is a one-byte number in a fixed pool instead of a pointer
+               (10,240 -> 5,760).  Map access through place_at(), thing_of(),
+               set_moat() (functions: inline x*24 cost 3.8K of code).
+  item pool    monsters and objects come from things_pool[100] instead of
+               calloc/free: no heap fragmentation, and a save can be a plain
+               memory dump.  Peak in the recorded games: 21.
+  maze table   removed (4,860 bytes): accnt_maze() filled it, but nexits was
+               never incremented and nothing read it.
+  constants    the monster table, help text, experience levels, damage and
+               strength tables, name syllables and the potion table are
+               const, so they live on the card (-2,062 bytes of RAM).  gcc
+               found the one write: the venus flytrap's damage string, now in
+               vf_dmg[] (RAM), used by new_monster() for flytraps.
+  resident.c   rnd(), roll() (called constantly), get_item(), vowelstr(),
+               set_mname(), choose_str(), pick_color(): see the string rule.
+  extern.c     the colour/stone/wood/metal name tables (from init.c), and
+               "wand", "staff", "flame": their addresses are kept or passed
+               to another bank.
+  command.c    the help list (its only user), so its text is banked.
+
+Far calls (tools/farcall/farcall.asm, tools/farify.py)
+  Every banked function called from another bank or from resident code, or
+  whose address is taken, gets a stub in S2:
+      far_foo:  ld a,BANK / ld de,_foo / jp farcall
+  farcall moves the caller's return address and bank onto its own small
+  stack, binds the target's bank and calls it, so the target sees its
+  arguments exactly where sccz80 put them.  On return it keeps HL and DE
+  (int, pointer and long results), binds the caller's bank and returns.
+  tools/farify.py rewrites the compiled modules: 239 call sites become far
+  calls, 331 stay direct (same bank), 47 uses of a function's address point
+  at the stub (so daemons, option handlers and function-pointer comparisons
+  all use one address).  It renames sections per bank (code_bank3,
+  rodata_bank3, code_resident ...), writes farstubs.asm and checks that no
+  direct call or address crosses a bank.  All 34 output files assemble with
+  mpm.
+  Test (tools/farcall/, run on tools/farcall/zbank.c, zrun with a bankable
+  $C000 segment): arguments and int result, long result, call through a
+  function pointer, a bank's own string read by resident code before and
+  after a nested far call, recursion between two banks 20 deep, bank and
+  far-call stack restored - all correct.
+  Cost: 460 T-states more than a direct call when binding is one OUT; with
+  OS_Mpb (two OZ calls) perhaps 1,000-1,500.  At about 5 far calls a turn
+  that is around 2 ms a turn.
+
+The string rule (tools/strcheck.py)
+  A banked module's string literals are only readable while its bank is
+  bound.  That holds while its own code runs and while resident code it
+  called runs (farcall restores the bank after any nested far call).  It
+  breaks if a literal is
+    A  passed to a function in another bank that reads it,
+    B  returned to a caller in another bank,
+    C  stored in a variable and read later from elsewhere.
+  strcheck follows literal addresses through registers and the stack in the
+  compiled code and lists every case.  Found and fixed: get_item() printing
+  the caller's "eat"/"wear"..., vowelstr() and set_mname() returning their
+  own literals, init_materials() storing "wand"/"staff", the dragon's "flame"
+  passed to fire_bolt(), and add_line() keeping inventory's format string
+  (pack.c and things.c now share a bank).  What remains is reviewed and
+  listed with reasons in strcheck.py (ALLOW).  Run it after every change:
+  tools/bankplan.sh does.  It follows literals; pointers loaded from a
+  module's own constant tables were reviewed by hand (all used within the
+  module, copied, or passed to resident code).
+
+Found linking with z88dk 2.4 (+z88)
+  * sccz80 passes the argument count of a variadic call (msg, printw ...)
+    in register A, which the far-call stub uses for the bank.  All seven
+    variadic functions are resident (io.c, zcurses.c), and farify.py now
+    refuses a variadic far target.
+  * Not in the Z88 library: getenv (main.c), localtime (the tombstone year:
+    left out on the Z88 for now, to come from the OZ clock), strerror/perror
+    (Unix save code).  malloc needs a heap declared by the program (the hw
+    window and scroll names use it).
+  * Linked flat, the game is "segment overflow" (over 64K), as expected:
+    the banked link is next.
+
+Still open (next steps)
+  * Linking for real: z88dk's linker (z80asm) with the per-bank sections
+    placed at $C000 in card banks 0-5, code_resident/rodata_resident at
+    $8000 in the S2 bank, data/bss in RAM.  The tarball here could not build
+    z80asm or the libraries; with your z88dk this is a crt and a section map.
+  * bind_s3 on the Z88: card base bank + A, OS_Mpb with C = MS_S3 (the base
+    from the application bank bound in S3 at entry).  Binding S1 (RAM) and
+    S2 at start-up, copying initialised data, clearing the rest (OZ does not
+    clear application RAM after a KILL).
+  * The stack: where OZ puts it, and whether Rogue's deepest call (maze
+    digging) fits.
+  * The OZ screen layer (zterm.c's replacement): windows, Os_Tin, RC_Draw,
+    KILL.

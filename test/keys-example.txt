@@ -1,0 +1,7 @@
+~
+# look around, inventory, help
+i~\s~
+?~\s~\s~\s~
+# walk a bit
+llll~hhhh~jjj~kkk~
+M~j~j~\s~

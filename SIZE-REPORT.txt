@@ -1,0 +1,125 @@
+Rogue for the Z88 - step 2: how big is it as Z80 code?
+=====================================================
+Measured 21 Nov 2026 with z88dk 2.5 (sccz80 -O3, target +z88), built from the
+source tarball (see "How it was measured").  zsdcc could not be built (it
+needs the SDCC sources), so these are sccz80 figures; zsdcc is usually
+smaller.
+
+Per module, bytes (tools/z80size.py):
+  code    instructions                          -> card
+  rodata  strings and constant tables           -> card (or RAM, see below)
+  data    initialised variables                 -> card image AND RAM
+  bss     zeroed variables                      -> RAM only
+
+file              code  rodata    data     bss
+command.asm       5682     907      77       2
+things.asm        5522     608       5      89
+fight.asm         5273     624     288     128
+chase.asm         5243      37       0      20
+sticks.asm        4362     438       0     177
+misc.asm          4242     294      14       0
+rooms.asm         4053       0      16    4880
+rip.asm           3805    1355      80       4
+move.asm          3512     854       0       8
+pack.asm          3276     432       0     128
+passages.asm      3197      44     171      23
+zcurses.asm       3104      63       8    2983
+options.asm       2826     353     100     128
+potions.asm       2765     748     140       0
+scrolls.asm       2542     640      10       4
+save.asm          2524     519       0     106
+monsters.asm      2296      32      52       4
+daemons.asm       1959     526       2       0
+weapons.asm       1910     154      65      18
+init.asm          1502    1304     570      55
+new_level.asm     1497       4       0       4
+main.asm          1343     119       0       0
+io.asm            1178     105      28     289
+zview.asm         1011      70       8      80
+rings.asm          942     307      28      10
+wizard.asm         734     171      32       4
+daemon.asm         570       0     160       0
+armor.asm          390     196       0       0
+list.asm           304       0       0       0
+md.asm             161       6       0       0
+extern.asm           0    2525    3245   11719
+vers.asm             0       6     108       0
+TOTAL            77725   13441    5207   20863
+
+
+Not in the table: library code.  Rogue calls 117 library routines (the list
+from the report): sccz80 runtime helpers (l_gint ... 4,000+ calls), sprintf
+(46 calls), string and ctype functions, malloc/calloc/free, and stdio file
+calls in the score and save code.  Directly called routines plus the printf
+core size at 3.5K (tools/libclosure.py --direct); allowing for what that
+misses, 4-8K.
+
+Library measured since (z88dk 2.4): 6,030 bytes for everything Rogue calls,
+3,160 without the Unix score/save file I/O, printf and sscanf.
+
+Totals
+  Card:  code 77.7K + rodata 13.4K + data 5.2K + library 4-8K  = 100-104K
+         less save.c and wizard.c (replaced / dropped)            ~ -4K
+         about 96-100K = 6-6.3 banks of 16K.
+         -> 7 game banks + the application bank: a 128K card, with no
+            compression and no assembler conversion.
+         My step-1 guess (100-140K of code alone) was too pessimistic.
+  RAM:   bss 20.9K + data 5.2K + heap (hw window 2.3K, monsters and
+         objects ~4.7K) + stack  = about 34K.
+         Two arrays are 15K of that and can shrink:
+           places (level map)  10,240  sized for 32 rows (MAXLINES); 24 are
+                                       used -> 7,680; 3 bytes a cell (monster
+                                       as a 1-byte index) -> 5,760
+           maze (rooms.c)       4,860  only used while making a maze level:
+                                       byte coordinates -> 2,430, or share
+                                       the memory with the hw window buffer
+         -> about 25-28K.
+  Compiler warnings: 3, all function-pointer comparisons in options.c
+  (harmless).  The real 16-bit int problems were the two fixed in step 1.
+
+Banking plan (first draft)
+  The constraint: sccz80 code passes pointers to strings, tables and
+  variables everywhere, so whatever a pointer can reach must be mapped
+  whenever game code runs.  Only the code itself can be switched.
+
+    S3  $C000-$FFFF  code banks, switched by far calls (7 card banks:
+                     ~78K game code + library)
+    S2  $8000-$BFFF  fixed card bank: rodata 13.4K + printf core ~2K
+                     (15.4K - just fits; string compression gives room)
+    S1  $4000-$7FFF  RAM bank from Os_Mal: bss, data, heap
+    S0  $2000-$3FFF  app RAM: stack, far-call glue, the runtime helpers
+                     (l_gint etc., called from every bank), OZ layer
+
+  RAM available: 16K (S1) + ~6K of app RAM = ~22K, against ~25-28K after
+  the two cuts.  So it needs one more squeeze (hw buffer, heap) or:
+  Plan B: strings out of rodata into their own compressed card bank, fetched
+  by number into a RAM buffer by a routine in app RAM (a script can turn
+  msg("...") into msg(S_123) for all ~1,000 literals).  Then S2 can be a
+  second RAM bank and there is room to spare.
+  Far calls: each function called across banks gets a small stub in app RAM
+  (bind bank, call, rebind); calls within a bank stay direct.  Function
+  pointers (daemons/fuses, options table, command dispatch) point at stubs.
+  Modules group by call graph into banks: level making (rooms, passages,
+  new_level, monsters), fighting (fight, chase, weapons, sticks), items
+  (things, pack, potions, scrolls, rings, armor), commands and screen.
+
+How it was measured
+  z88dk-2.5.tar.gz is the source release with its git submodules missing.
+  zcc, sccz80, ucpp, copt and zpragma build once ext/uthash is present:
+  tools/uthash-stub/ has small stand-ins (copy to ext/uthash/src/).  The
+  libraries, z80asm and z80nm need more missing pieces (ragel, re2c,
+  ext/regex, ext/optparse), so nothing is linked: each module is compiled to
+  assembler (zcc -a) and sized by tools/z80size.py, which encodes every
+  instruction and data directive.  Check: tools/sccz80_to_mpm.py makes the
+  same files assemble with mpm 2.2 from the dev kit; mpm's binaries come to
+  117,276 bytes, exactly the sizer's total, module by module.
+
+Source changes for sccz80 (Linux build unchanged; bot re-run, same games)
+  rogue.h     #include <stdarg.h> (va_list was used without it)
+  init.c      four "int cNxxx = (sizeof x / sizeof y)" initialisers without
+              the outer brackets: sccz80 rejects them in a global initialiser
+  main.c, rip.c, save.c
+              no <signal.h> etc. on the Z88: zsignal.h makes signal() a no-op
+  main.c      leave(): no setbuf/BUFSIZ on the Z88
+  save.c      a stat() stand-in until the RAM-dump save replaces it
+  md.c        dropped md_loadav(double *), the only floating point

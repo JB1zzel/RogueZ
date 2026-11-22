@@ -1,0 +1,183 @@
+Rogue on the Z88 - step 4: a working application card
+=====================================================
+build-z88/rogue.epr: a 128K card.  Index name "Rogue", hotkey []G.  Needs an
+expanded Z88 (it asks OZ for 24K of continuous RAM, $2000-$7FFF).
+
+Card and memory
+  card bank $38-$3D  code banks 0-5, bound into segment 2 ($8000) as needed
+  card bank $3E      first values of the initialised data
+  card bank $3F      application bank, segment 3 ($C000): start-up, resident
+                     code (screen layer, messages, map access, rnd...), the
+                     z88dk library, 121 far-call stubs; DOR at $FE00
+  RAM $2000-$7FFF    data and bss (to $7C53), from the DOR (96 pages)
+  stack              OZ's own (segment 0)
+  This keeps the application bank in S3 all the time (OZ calls entry+3 there)
+  and switches code in S2 - the reverse of the first plan in BANKING.txt.
+  The bank split, string check and far-call rewrite are as BANKING.txt says.
+
+Start-up (z88/rogue_crt0.asm)
+  checks the RAM OZ gave and that the Z88 is expanded; ESC is an ordinary
+  key (Rogue: cancel); error handler (KILL -> Os_Bye); card base bank from
+  the application bank in S3 (OS_Mgb: code bank 0 is 7 below); copies the
+  initialised data from card bank $3E, zeroes the rest (OZ does not clear
+  RAM after a KILL); calls main() in its bank.
+Far calls (z88/farcall.asm): OS_Mpb into S2.  oz_in() binds the current code
+  bank into S2 again after every key read, in case OZ changed it.
+Screen (src/zoz.c, z88/ozcalls.asm): window 1, 94 x 8, written with GN_Sop,
+  only the changed part of each row; keys with OS_In: cursor keys move,
+  SHIFT+cursor runs, DIAMOND+cursor runs till something is adjacent.
+
+Build
+  needs z88dk (2.4 works) on the PATH, and the dev kit for mpm (the DOR):
+    Z88KIT=/path/to/z88-devkit sh tools/build88.sh      -> build-z88/rogue.epr
+  test cards: ROGUE_B=build-z88t ROGUE_CFLAGS=-DZ88_TEST_SEED=7 sh tools/build88.sh
+    (the same dungeon as the Linux build with ZSEED=7; -DZ88_TEST_LEVEL=n
+    starts on level n)
+  The build stops if tools/sxtcheck.py or tools/strcheck.py find a problem.
+
+Tested (dev kit harness, OZ 5, card in slot 2, OZVMCFG=1 NOSLOT3=1)
+  * plays: moving, fighting, --More--, inventory, M map view, levels
+  * switching to the Calculator and back with []G, then playing on
+  * KILL from the Index, then a new game: RAM is cleared, new dungeon
+  * Z88 against Linux, same seed and keys, every screen compared
+    (test/z88vslinux.py): 31 scripted keys, 150 and 300 random keys over
+    all commands - all screens and the random seed identical after every
+    key.  This is what found the problems below.
+  * stack: a level with a maze (recursive digging, 35 deep) took the stack
+    about 650 bytes below its idle point ($1E76 -> $1BE9)
+  * speed, from a key going down to the next key read: move 65-75 ms
+    (about 15 ms of it is OZ delivering the key), attack 130-150 ms, a
+    six-step run 420 ms.  History: 600 ms a move on the first card, 160 ms
+    on the second, now this - see Speed below.
+  Not tested: OZ 4.7 and 3.0 (only the OZ 5 ROM is in the kit), KLive,
+  OZvm, real hardware.
+
+Three sccz80 problems found on the way (worth passing to Gunther)
+  1 A cast to char tested as a condition: "if (a && (char)(x != 0))"
+    compiles to  call l_sxt / jp nc,...  - a branch on carry, which l_sxt
+    (int -> char) does not set from the value: the condition is always
+    false.  Rogue's on() flag test had (bool) = (char) in it, so monsters
+    never woke.  Fixed by dropping the cast; tools/sxtcheck.py checks every
+    build for the pattern.  Same at -O0, -O2 and -O3.
+  2 Variadic functions of your own: sccz80 pushes arguments left to right,
+    so in  msg(char *fmt, ...)  "fmt" is really the last argument (z88dk's
+    stdarg.h says to fetch even named arguments with va_arg).  Messages came
+    out as just their argument.  msg, addmsg and the printw family are now
+    macros: sprintf into a buffer, then a plain function.  (This also means
+    no function relies on the argument count in A, which a far-call stub
+    overwrites.)
+  3 sprintf with an empty result (Rogue's msg("") clears the message line)
+    left the buffer as it was, without even the terminating 0: an old
+    message came back.  The macros clear the buffer first.
+
+Speed
+  The first card took 0.6 s a step.  The harness profile (a copy of the
+  harness that tells our application bank from OZ: PROFBANK=BF) showed 47% of
+  the time in 16-bit multiplication: the curses layer computed y * width for
+  every character it read or wrote, and zb_show indexed scr[r][c].  Each
+  window now keeps a table of row pointers, and zb_show walks pointers and
+  skips unchanged rows: about 4 times faster (160 ms a move).
+
+  Then, measured the same way (move / attack):
+    dirty rows: only rows written since the last refresh are composed
+    and compared                                            ~140 ms
+    --opt-code-speed, cold curses code (initscr, newwin, wgetnstr...)
+    moved out of the fixed bank to make room                ~125 ms
+    z88/hot.asm: place_at, thing_of and zb_show in assembler
+    (zb_show sends only the changed span of each row)       ~100 / 220 ms
+    do_daemons, do_fuses, rnd, dist, diag_ok, step_ok in
+    assembler; BEFORE/AFTER are the constants 1 and 2 instead
+    of spread(1)/spread(2) calls (always 1 and 2)            ~85 ms
+    look() and chase() keep their locals static (ZSTATIC in
+    rogue.h): sccz80 reaches stack locals through helper calls ~75 ms
+    wmove, winch and waddch (printable characters) in
+    assembler                                                ~65 ms
+    status panel formatted without printf (its number
+    conversion divides in 32 bits: 20 ms for the panel), and
+    only panel lines that changed are redrawn                 / 130 ms
+    box-character walls and dithered passages (see Walls)     ~72 ms
+    look() in assembler (z88/zlook.asm, banked with misc)     ~68 ms
+    screen by column spans: waddch records which columns of
+    each row changed (sdlo/sdhi), z_maprows (hot.asm)
+    rebuilds only those, zb_show compares only those;
+    z_compose_map moved to zmap.c (banked)                    ~60 / 125 ms
+  "jump" is now on by default (Rogue's option for slow terminals: a run is
+  drawn only where it stops).  It can be turned off with o.
+
+  What is left per move: about 15 ms OZ reading the key, 10 ms screen
+  output, and the game itself spread thinly (chase 3.7 ms, look 3 ms, the
+  daemon list 2.3 ms, the rest under 2 ms each).
+
+  zlook.asm is a separate module that tools/build88.sh copies next to
+  sccz80's output, so banks.py and farify.py treat it like C (GROUPS keeps
+  it with misc).  Its rare paths were tested with test cards built with
+  -DZ88_TEST_FLAGS (blind, hallucinating, sees monsters) against Linux with
+  ZFLAGS set the same.  Every change was checked with samegame (Linux,
+  old build against new) and z88vslinux.
+
+Walls
+  Room walls are drawn with OZ's box characters (1,'2','*',c with c = '@' +
+  directions: bit 0 right, 1 down, 2 left, 3 up - checked on the emulator's
+  OZ; the developer notes' text has left and right the other way round).
+  z_walls (z88/hot.asm, C reference in src/zcurses.c) shapes each map row as
+  it is composed: '|' is a vertical line, '-' a horizontal line, or a corner
+  when a '|' or door is above or below it.  Doors stay '+'.  Passages ('#')
+  are a user-defined character, '@' (1,138,'=','@',8 rows), a 50% dither;
+  drawn with 1,'2','?','@', stored as ZW_PASSAGE ($10).  zb_init defines
+  it, also each time the screen comes back from another application.  The screen
+  buffer holds ZW_BOX | directions ($11-$1F, see curses.h); the Linux build
+  prints them as '-' and '|' again, so its screens are unchanged.
+  A corner depends on the rows above and below, so a row is reshaped when a
+  '|' or door appears or goes next to it (sdirty ZD_WALL); rewriting a
+  character with the same one no longer marks a row as changed.
+  Tests: z88vslinux compares the exact box characters (harness DUMPLO=1,
+  Linux ZBOX=1), and ZWALLCHECK=1 makes the Linux build check every
+  incremental screen against shaping from scratch (40 seeds x 1500 keys:
+  no differences; with the neighbour reshaping removed it finds them).
+  Cost: a move went from about 67 to 72-76 ms.
+
+MENU, help, saving, new games
+  * MENU and help: z88/mth.asm (topics Info and Game, commands Save game,
+    Options, Level map, Redraw, Quit as DIAMOND + S O L R Q) and the pages in
+    z88/help.txt, wrapped by the kit's tools/helpwrap.py (7 lines of 62).
+    They live in the data bank ($3E) at $E000, above the data image, as the
+    application bank is full; mkcard.py builds them and gives dor.asm their
+    addresses (mth_addr.def).  Menu commands reach the game as 0 + code
+    ($81-$85), turned into S o M ^R Q in zb_getkey.
+  * Saving (S, or DIAMOND S): z88/zsave.asm (banked with save.c, like
+    zlook.asm) packs RAM from __data_start to __bss_end into rogue.sav,
+    after 8 bytes that identify the build.  The packing is a small LZ
+    (literal runs and back-copies of 3-130 bytes; a 256-entry hash of byte
+    pairs, plus the byte before for runs): 23K of RAM became 5.8K in a test
+    game.  zb_shown is its scratch (hash table and output buffer), so the
+    screen is redrawn whole after a save.  The far-call state, the start-up
+    stack pointer, zb_shown, zb_obuf and the packer's own variables are in
+    section bss_keep, after __bss_end: neither saved nor cleared.  The game
+    goes on after a save; at start-up Rogue offers the file (src/save.c
+    z_try_restore), unpacks it over RAM (registers and bss_keep only),
+    deletes it (as Rogue always has), forces a full redraw and carries on in
+    playit().  Each takes about 2 s.  Checked in the emulator: RAM after a
+    restore equals RAM before the save except the message buffers, the
+    screen copy and last_comm (the S command).
+  * DIAMOND M is ENTER on the Z88 (ctrl-M), so Level map is DIAMOND L.
+  * Options: a MENU topic with one command, Your name (code $8D, src/options.c
+    z_option): it asks on the top line.  The other options keep their
+    starting values (jump on); z_option still knows them (codes $86-$8C) if
+    any are wanted back.  The o key points to the MENU; Rogue's full-screen
+    option editor (10 lines, no cursor) is not used.
+  * Typing text (get_str: the name, naming things): DEL (127, the Z88's key)
+    rubs out as well as backspace, by moving back and clearing to the end.
+  * Feedback while it works: "Descending into darkness..." is shown as soon
+    as curses is up (main.c), and new_level clears the screen at once,
+    leaving the @ where it was, before building the next level.
+  * Dying (and winning) starts a new game: z_newgame (rogue_crt0.asm) drops
+    the C stack and runs the start-up again from the data copy.  Quit (Q)
+    still closes the application.
+  * Test cards: -DZ88_TEST_HP=n starts with n hit points (to test dying),
+    -DZ88_TEST_FLAGS=n with player flags.
+
+Not done yet
+  * the score table (an OZ file), the tombstone's year (OZ clock)
+  * the winner's banner (13 rows)
+  * the stack limit for OZ applications: 650 bytes measured, the deepest
+    possible maze needs perhaps 850 - to confirm against OZ's documentation
