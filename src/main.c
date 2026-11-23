@@ -207,6 +207,7 @@ fatal(char *s)
  *	Handle stop and start signals
  */
 
+#ifndef __Z88__
 void
 tstp(int ignored)
 {
@@ -243,6 +244,7 @@ tstp(int ignored)
     curscr->_curx = ox;
 #endif
 }
+#endif
 
 /*
  * playit:
@@ -333,6 +335,7 @@ quit(int sig)
  *	Leave quickly, but curteously
  */
 
+#ifndef __Z88__
 void
 leave(int sig)
 {
@@ -357,6 +360,7 @@ leave(int sig)
 #endif
     my_exit(0);
 }
+#endif
 
 /*
  * shell:

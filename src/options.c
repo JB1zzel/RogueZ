@@ -39,6 +39,7 @@ typedef struct optstruct	OPTION;
 
 void	pr_optname(OPTION *op);
 
+#ifndef __Z88__
 OPTION	optlist[] = {
     {"terse",	 "Terse output",
 		 &terse,	put_bool,	get_bool	},
@@ -61,12 +62,14 @@ OPTION	optlist[] = {
     {"file",	 "Save file",
 		 file_name,	put_str,	get_str		}
 };
+#endif
 
 /*
  * option:
  *	Print and then set options from the terminal
  */
 
+#ifndef __Z88__
 void
 option()
 {
@@ -118,6 +121,7 @@ option()
     touchwin(stdscr);
     after = FALSE;
 }
+#endif
 
 #ifdef __Z88__
 /*
@@ -129,48 +133,18 @@ int z_optcmd;
 
 void
 z_option(void)
-{
-    OPTION *op;
-    bool *bp;
+{  /* the MENU offers only the name (7) */
     int r;
 
-    if (z_optcmd < 0 || z_optcmd > 7)  /* the MENU now offers only the name (7) */
+    if (z_optcmd != 7)
         return;
-    op = &optlist[z_optcmd];
-    switch (z_optcmd)
-    {
-    case 3:                             /* seefloor: as get_sf */
-        if (see_floor)
-        {
-            erase_lamp(&hero, proom);
-            see_floor = FALSE;
-        }
-        else
-        {
-            see_floor = TRUE;
-            look(FALSE);
-        }
-        break;
-    case 6:                             /* inventory style: the next one */
-        inv_type = (inv_type + 1) % 3;
-        msg("%s: %s", op->o_prompt, inv_t_name[inv_type]);
-        return;
-    case 7:                             /* your name */
-        msg("What is your name? ");
-        r = get_str(whoami, stdscr);
-        mpos = 0;                       /* the question needs no --More-- */
-        if (r == NORM)
-            msg("Your name is %s", whoami);
-        else
-            msg("");
-        return;
-    default:
-        bp = (bool *) op->o_opt;
-        *bp = !*bp;
-        break;
-    }
-    bp = (bool *) op->o_opt;
-    msg("%s: %s", op->o_prompt, *bp ? "on" : "off");
+    msg("What is your name? ");
+    r = get_str(whoami, stdscr);
+    mpos = 0;                           /* the question needs no --More-- */
+    if (r == NORM)
+        msg("Your name is %s", whoami);
+    else
+        msg("");
 }
 #endif
 
@@ -179,49 +153,58 @@ z_option(void)
  *	Print out the option name prompt
  */
 
+#ifndef __Z88__
 void
 pr_optname(OPTION *op)
 {
     wprintw(hw, "%s (\"%s\"): ", op->o_prompt, op->o_name);
 }
+#endif
 
 /*
  * put_bool
  *	Put out a boolean
  */
 
+#ifndef __Z88__
 void
 put_bool(void *b)
 {
     waddstr(hw, *(bool *) b ? "True" : "False");
 }
+#endif
 
 /*
  * put_str:
  *	Put out a string
  */
 
+#ifndef __Z88__
 void
 put_str(void *str)
 {
     waddstr(hw, (char *) str);
 }
+#endif
 
 /*
  * put_inv_t:
  *	Put out an inventory type
  */
 
+#ifndef __Z88__
 void
 put_inv_t(void *ip)
 {
     waddstr(hw, inv_t_name[*(int *) ip]);
 }
+#endif
 
 /*
  * get_bool:
  *	Allow changing a boolean option and print it out
  */
+#ifndef __Z88__
 int
 get_bool(void *vp, WINDOW *win)
 {
@@ -266,12 +249,14 @@ get_bool(void *vp, WINDOW *win)
     waddch(win, '\n');
     return NORM;
 }
+#endif
 
 /*
  * get_sf:
  *	Change value and handle transition problems from see_floor to
  *	!see_floor.
  */
+#ifndef __Z88__
 int
 get_sf(void *vp, WINDOW *win)
 {
@@ -294,6 +279,7 @@ get_sf(void *vp, WINDOW *win)
     }
     return(NORM);
 }
+#endif
 
 /*
  * get_str:
@@ -378,6 +364,7 @@ get_str(void *vopt, WINDOW *win)
  * get_inv_t
  *	Get an inventory type name
  */
+#ifndef __Z88__
 int
 get_inv_t(void *vp, WINDOW *win)
 {
@@ -425,6 +412,7 @@ get_inv_t(void *vp, WINDOW *win)
     mvwprintw(win, oy, ox, "%s\n", inv_t_name[*ip]);
     return NORM;
 }
+#endif
 	
 
 #ifdef MASTER
@@ -454,6 +442,7 @@ get_num(void *vp, WINDOW *win)
  *	or the end of the entire option string.
  */
 
+#ifndef __Z88__
 void
 parse_opts(char *str)
 {
@@ -537,6 +526,7 @@ parse_opts(char *str)
 	str = sp;
     }
 }
+#endif
 
 /*
  * strucpy:

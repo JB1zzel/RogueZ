@@ -183,12 +183,14 @@ wstandend(WINDOW *w)
     return OK;
 }
 
+#ifndef __Z88__
 int
 wgetch(WINDOW *w)
 {
     (void) w;
     return zb_getkey();
 }
+#endif
 
 /*
  * Status panel: 13 columns down the right-hand side.

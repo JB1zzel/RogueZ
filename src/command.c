@@ -16,6 +16,7 @@
 #include <ctype.h>
 #include "rogue.h"
 
+#ifndef __Z88__	/* the Z88 has the commands in its HELP pages (z88/help.txt) */
 /* Z88: the help list lives here, its only user (its text goes in this bank) */
 const struct h_list helpstr[] = {
     {'?',	"	prints help",				TRUE},
@@ -86,6 +87,7 @@ const struct h_list helpstr[] = {
     {'v',	"	print version number",			TRUE},
     {0,		NULL }
 };
+#endif
 
 /*
  * command:
@@ -352,7 +354,11 @@ over:
 		when 'c': call(); after = FALSE;
 		when '>': after = FALSE; d_level();
 		when '<': after = FALSE; u_level();
+#ifdef __Z88__
+		when '?': after = FALSE; msg("the commands are in the HELP pages (Info, More commands)");
+#else
 		when '?': after = FALSE; help();
+#endif
 		when '/': after = FALSE; identify();
 		when 's': search();
 		when 'z':
@@ -614,6 +620,7 @@ foundone:
  * help:
  *	Give single character help, or the whole mess if he wants it
  */
+#ifndef __Z88__
 void
 help()
 {
@@ -694,6 +701,7 @@ help()
     touchwin(stdscr);
     wrefresh(stdscr);
 }
+#endif
 
 /*
  * identify:

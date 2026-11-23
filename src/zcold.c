@@ -130,6 +130,7 @@ mvwin(WINDOW *w, int y, int x)
 }
 
 
+#ifndef __Z88__
 int
 wgetnstr(WINDOW *w, char *s, int n)
 {
@@ -157,6 +158,7 @@ wgetnstr(WINDOW *w, char *s, int n)
     s[i] = '\0';
     return OK;
 }
+#endif
 
 
 char *

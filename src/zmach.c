@@ -14,9 +14,12 @@ void open_score(void) { }
 void setup(void) { }
 void getltchars(void) { }
 void resetltchars(void) { }
+void flush_type(void) { }
+
+#ifndef __Z88__
 void playltchars(void) { }
 void start_score(void) { }
 bool is_symlink(char *sp) { (void) sp; return FALSE; }
 bool lock_sc(void) { return FALSE; }
 void unlock_sc(void) { }
-void flush_type(void) { }
+#endif

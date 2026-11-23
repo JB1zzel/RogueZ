@@ -47,6 +47,7 @@ ALLOW = {
     ('B', 'score', ''): 'returns nothing (jump heuristic)',
     ('B', 'do_zap', ''): 'returns nothing (jump heuristic)',
     ('B', 'new_thing', ''): 'returns a THING * (jump heuristic)',
+    ('B', 'command', ''): 'returns nothing (void; jump heuristic)',
     ('B', 'z_option', ''): 'returns nothing: an on/off literal in HL for msg',
     ('B', 'z_try_restore', ''): 'returns nothing: a ternary message in HL before mvaddstr',
     ('C', 'get_dir', ''): 'static prompt pointer, only read inside get_dir',

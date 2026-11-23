@@ -110,9 +110,6 @@ restore(char *file, char **envp)
     return FALSE;
 }
 
-void rd_score(SCORE *top_ten) { NOOP(top_ten); }
-void wr_score(SCORE *top_ten) { NOOP(top_ten); }
-void auto_save(int sig) { NOOP(sig); }
 #else
 #ifdef __Z88__
 /* no stat() on the Z88: save.c is to be replaced by a raw RAM dump */

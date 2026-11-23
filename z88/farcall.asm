@@ -11,7 +11,7 @@
         MODULE  farcall
         INCLUDE "memory.def"
 
-        PUBLIC  farcall, bind_s2, fc_bank, fc_base, fc_sp, fc_stack, fc_init
+        PUBLIC  farcall, bind_s2, fc_bank, fc_tab, fc_sp, fc_stack, fc_init
 
         defc    FC_DEPTH = 32
 
@@ -52,12 +52,15 @@ fc_jphl:
         jp      (hl)
 
 ; bind_s2: bind code bank A (0 = first code bank) into segment 2.
-; fc_base is the absolute number of code bank 0 (found at start-up).
+; fc_tab holds the absolute bank of each code bank (found at start-up).
 bind_s2:
         ld      (fc_bank),a
-        ld      hl,fc_base
-        add     a,(hl)
-        ld      b,a
+        ld      hl,fc_tab
+        add     a,l
+        ld      l,a
+        jr      nc,bs_nc
+        inc     h
+bs_nc:  ld      b,(hl)
         ld      c,MS_S2
         call_oz(os_mpb)
         ret
@@ -71,7 +74,7 @@ fc_init:
         SECTION bss_keep                ; outside a saved game (zsave.asm)
 fc_sp:          defs    2
 fc_bank:        defs    1
-fc_base:        defs    1
+fc_tab:         defs    8               ; absolute banks: code 0-5, data (rb_find)
 fc_target:      defs    2
 fc_hl:          defs    2
 fc_de:          defs    2

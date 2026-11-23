@@ -1,18 +1,18 @@
 ; dor.asm - Rogue's application DOR and card header (mpm, Z88 dev kit macros)
 ;       mpm -I<devkit>/def -b dor.asm      (tools/mkcard.py does this)
-; Assembled at $FE00 in the application bank, above the resident code that
+; Assembled at $FF80 in the application bank, above the resident code that
 ; z88dk links from $C000 (tools/mkcard.py checks they do not overlap).
         module rogue_dor
 
         include "dor.def"
         include "macros.def"
 
-        org     $FE00
+        org     $FF80
 
 defc BANK_APPL = $3F            ; application bank (top of the 128K card)
 defc BANK_CODE0 = $38           ; code bank 0, bound in S2 at entry
 defc REQPAGES = 96              ; continuous RAM $2000-$7FFF
-defc BANK_MTH = $3E             ; data image bank: MENU and help at $E000
+defc BANK_MTH = $3E             ; last code bank: MENU and help at its top
 defc ENTRY = $C000              ; z88/rogue_crt0.asm: jp start / scf / ret
 
 in_dor:
@@ -31,7 +31,7 @@ in_dor:
         include "mth_addr.def"
 end_of_dor:
 
-        defs    $1C0-end_of_dor         ; to $FFC0 ($ and labels count from $FE00)
+        defs    $40-end_of_dor          ; to $FFC0 ($ and labels count from $FF80)
 
         doraplf [in_dor & $3FFF, BANK_APPL]
         defs    $1F8-$1D3

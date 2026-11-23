@@ -1,50 +1,37 @@
 @in_help
-Rogue 5.4.4: Exploring the Dungeons of Doom, by Michael Toy, Ken Arnold and Glenn Wichman.
+Rogue 5.4.4 by Michael Toy, Ken Arnold and Glenn Wichman. Find the Amulet of Yendor (below level 26) and bring it back to the surface. The Info topic of the MENU tells you how to play.
 .
-Go down through the levels of the dungeon, find the Amulet of Yendor (below level 26) and bring it back up to the surface.
-.
-The Info topic of the MENU tells you how to play.
+Z88 version by Jamie Bradbury, 2026.
 
 @hlp_info
-How to move, fight and use things, what the screen shows, and saving games.
+Moving, fighting, things, the screen and saving.
 
 @hlp_game
-Save the game, look at the whole level, redraw the screen or quit.
+Save, see the whole level, redraw or quit.
 
 @hlp_opts
 Your name, for the tombstone.
 
 @hlp_aim
-Each level is a set of rooms joined by passages. Find the stairs (%) and press > to go down. Gold, potions, scrolls, rings, wands, armour and weapons lie about; monsters (letters) grow stronger the deeper you go.
-.
-With the Amulet, < takes you back up.
+Rooms are joined by passages. Find the stairs (%) and press > to go down. Gold, potions, scrolls, rings, wands, armour and weapons lie about; monsters (letters) get stronger deeper down. With the Amulet, < goes back up.
 
 @hlp_moving
-Cursor keys or h j k l (and y u b n for diagonals) move one step. SHIFT with a direction runs; DIAMOND with a cursor key runs until something turns up.
-.
-s searches for hidden doors and traps. > and < use stairs.
+Cursor keys or h j k l (y u b n diagonally) move. {SHIFT} and a direction runs; {DIAMOND} and a cursor key runs until something turns up. s searches for hidden doors and traps; > and < use stairs.
 
 @hlp_fighting
-Walk into a monster to attack it. F and a direction fights to the death. t throws, z zaps a wand. Rest (.) to get hit points back.
+Walk into a monster to hit it. F and a direction fights to the death; t throws, z zaps a wand. Rest (.) to heal.
 
 @hlp_items
-i lists what you carry. q quaff, r read, e eat, w wield, W wear armour, T take it off, P put on a ring, R remove it, d drop, c call (name) a thing. ? lists every command.
+i lists what you carry. q quaff, r read, e eat, w wield, W wear, T take off armour, P put on, R remove a ring, d drop, c call (name) a thing.
+
+@hlp_more
+/ names a symbol. m and a direction moves without picking up; ^ and a direction names a trap. , picks up, I shows one thing, a repeats a command. ) ] = @ show weapon, armour, rings, state. D lists what you know. {DIAMOND}R redraws, {DIAMOND}P repeats the last message, ESC cancels.
 
 @hlp_screen
-The top line has the messages; the map rows below it follow you around the level. Your state is on the right. Walls are drawn as lines and passages shaded.
-.
-M (or DIAMOND L) shows the rest of the level, 7 rows at a time.
+Messages are on the top line; the map below follows you; your state is on the right. M (or {DIAMOND}L) shows the whole level, 7 rows at a time (j and k move).
 
 @hlp_saving
-Save (DIAMOND S, or S) writes the game to rogue.sav and play goes on. When Rogue starts it offers the saved game; once restored, the file is deleted.
-.
-After you die, a new game starts.
-
-@hlp_save
-Save the game in rogue.sav. It is offered when Rogue starts again.
-
-@hlp_map
-Show the whole level, 7 rows at a time (j and k move the view).
+S (or {DIAMOND}S) saves to rogue.sav and play goes on. Rogue offers the saved game when it starts; once restored, the file is deleted. After you die, a new game starts.
 
 @hlp_redraw
 Draw the screen again.
@@ -53,4 +40,4 @@ Draw the screen again.
 Give up this game (Rogue asks first). The application closes.
 
 @hlp_o_name
-Type the name for the tombstone. DEL rubs out, ENTER finishes, ESC keeps the old one.
+Type your name. DEL rubs out, ENTER finishes, ESC keeps the old one.

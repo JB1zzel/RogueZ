@@ -167,6 +167,23 @@ MENU, help, saving, new games
     option editor (10 lines, no cursor) is not used.
   * Typing text (get_str: the name, naming things): DEL (127, the Z88's key)
     rubs out as well as backspace, by moving back and clearing to the end.
+  * RAM application: tools/mkramapp.py has z88card (V2.2+, -ramapp) build
+    the card from its 8 banks (it must equal ours) and the RAM application
+    files (release/ramapp).  Installed banks can be anywhere, so mkcard.py
+    signs banks 0-6 at $3FF0 ("RG88", a CRC stamp, the number; the stamp is
+    also patched into rb_sig) and rogue_crt0.asm rb_find fills fc_tab with
+    their absolute numbers: the card layout first, then banks $FF-$20.
+    farcall's bind_s2 looks banks up in fc_tab.  Tested on a card with banks
+    0-6 shuffled: same game (the MENU pointers then point at the wrong bank:
+    an installer translates them).  The panel formatting (z88/zfmt.asm)
+    moved to a code bank to make room.
+  * Memory: the DOR asks for 96 pages ($2000-$7FFF).  If OZ gives less
+    but at least $2000-$3FFF (OZ 4 when RAM is short, e.g. with a RAM
+    application installed), rogue_crt0.asm ram_s1 takes a whole bank of its
+    own for $4000-$7FFF (OS_Mop MM_S1, 64 x OS_Mal 256, all from one bank;
+    a pool that lands in a shared bank is held open while another is tried)
+    and binds it to S1.  Tested on OZ 4.0 and 4.7 (forced): play, switch to
+    PipeDream and back, the game is intact.
   * Feedback while it works: "Descending into darkness..." is shown as soon
     as curses is up (main.c), and new_level clears the screen at once,
     leaving the @ where it was, before building the next level.

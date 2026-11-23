@@ -32,11 +32,15 @@ import z80size  # noqa: E402
 ASMDIR = os.environ.get('ROGUE_BUILD', os.path.join(HERE, '..', 'build-size'))
 CALLS = os.path.join(HERE, 'calls.json')
 BANK = 16384
-RESERVE = 512           # per bank: bank header, local entry points, slack
-RESIDENT_MODULES = {'io', 'zcurses', 'list', 'md', 'resident', 'zoz', 'zmach', 'zterm'}
+RESERVE = 48            # per bank: its signature (16 bytes), estimate slack
+DATA_RESERVE = 3328     # the last bank also holds the first values of the
+                        # initialised data, packed, and the MENU and help
+                        # (tools/mkcard.py)
+RESIDENT_MODULES = {'io', 'zcurses', 'list', 'md', 'resident', 'zoz', 'zmach', 'zterm', 'zview', 'daemon'}
 GROUPS = [{'pack', 'things'},   # must share a bank: add_line keeps pack's strings
           {'misc', 'zlook'},    # look() (z88/zlook.asm) with trip_ch, erase_lamp
-          {'save', 'zsave'}]    # saved games (z88/zsave.asm) with save.c
+          {'save', 'zsave'},    # saved games (z88/zsave.asm) with save.c
+          {'zcold', 'zfmt'}]    # panel formatting (z88/zfmt.asm) with z_status
 SHARED_RODATA = {'extern'}   # tables whose pointers are kept and used anywhere -> S2
 LIB_ESTIMATE = 5000     # library in S2 (3.5K measured lower bound, 4-8K)
 
@@ -145,7 +149,9 @@ def main():
             w[tuple(sorted((ua, ub)))] += 0.01 * n     # tie-breaker
     cap = BANK - RESERVE
     total = sum(units.values())
-    k = nbanks or -(-total // cap)
+    k = nbanks or int(re.search(r'defc\s+NBANKS\s*=\s*(\d+)', open(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), '..', 'z88', 'rogue_crt0.asm')).read()).group(1))
+    caps = [cap] * (k - 1) + [cap - DATA_RESERVE]
 
     def cost(assign):
         return sum(n for (a, b), n in w.items() if assign[a] != assign[b])
@@ -158,11 +164,11 @@ def main():
 
     best = None
     rng = random.Random(1)
-    for attempt in range(200):
+    for attempt in range(1500):
         order = sorted(units, key=lambda u: -units[u] * (1 + rng.random() * 0.3))
         assign, used = {}, collections.Counter()
         for u in order:
-            choices = [b for b in range(k) if used[b] + units[u] <= cap]
+            choices = [b for b in range(k) if used[b] + units[u] <= caps[b]]
             if not choices:
                 break
             aff = {b: sum(n for (x, y), n in w.items()
@@ -182,7 +188,7 @@ def main():
                     if b == assign[u]:
                         continue
                     f = fill(assign)
-                    if f[b] + units[u] > cap:
+                    if f[b] + units[u] > caps[b]:
                         continue
                     old = assign[u]
                     assign[u] = b
@@ -197,7 +203,7 @@ def main():
                         continue
                     f = fill(assign)
                     bu, bv = assign[u], assign[v]
-                    if f[bu] - units[u] + units[v] > cap or f[bv] - units[v] + units[u] > cap:
+                    if f[bu] - units[u] + units[v] > caps[bu] or f[bv] - units[v] + units[u] > caps[bv]:
                         continue
                     assign[u], assign[v] = bv, bu
                     c1 = cost(assign)
@@ -217,7 +223,8 @@ def main():
     # --- report ---
     keys = sum(1 for _ in ())  # placeholder
     print('Banked units (module code minus resident functions, plus its strings)')
-    print('total %d bytes in %d banks of %d usable bytes' % (total, k, cap))
+    print('total %d bytes in %d banks of %d usable bytes (the last %d: data, MENU)'
+          % (total, k, cap, caps[-1]))
     for b in range(k):
         mods = sorted((u for u in assign if assign[u] == b), key=lambda u: -units[u])
         print('\n  bank %d: %5d bytes (%d free)' % (b, f[b], BANK - f[b]))
