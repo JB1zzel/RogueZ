@@ -117,8 +117,9 @@ z_mapline(void)
         c = 0;
         for (r = 0; r < ZSCR_ROWS - 1; r++)
         {
-            for (n = ZPANEL_W; n && z_panel[r][n - 1] <= ' '; n--)
-                ;
+            n = (int) strlen(z_panel[r]);   /* not past the end: old */
+            while                       /* text stays there */ (n && z_panel[r][n - 1] == ' ')
+                n--;
             if (!n || c + n > ZMAP_COLS)
                 continue;
             memcpy(&screen[0][c], z_panel[r], (size_t) n);
