@@ -23,6 +23,7 @@
         INCLUDE "fileio.def"
         INCLUDE "director.def"
         INCLUDE "time.def"
+        INCLUDE "map.def"
 
         PUBLIC  __Exit, l_dcal, applname, _z_newgame, __data_start, __bss_end, __keep_end
         EXTERN  far_main, fc_init, fc_tab, fc_bank
@@ -62,12 +63,14 @@ ram_got:
         ld      ix,-1                   ; an expanded machine?
         ld      a,FA_EOF
         call_oz(os_frm)
-        ld      hl,msg_expanded
+        ld      hl,msg_nomem
         jp      nz,init_error
 
         ld      a,SC_DIS                ; ESC is an ordinary key (Rogue: cancel)
         call_oz(Os_Esc)
         xor     a
+        ld      (_z_upstairs),a         ; MENU Options: off until chosen
+        ld      (_z_mini),a             ; the panel shows the stats
         ld      b,a
         ld      hl,errhan
         call_oz(os_erh)
@@ -125,6 +128,13 @@ clr:    ld      (hl),0
         pop     bc
         pop     bc
 __Exit:
+        ld      a,(_z_mini)             ; give the map back
+        or      a
+        jr      z,exit_map
+        ld      a,'2'
+        ld      bc,mp_del
+        call_oz(os_map)
+exit_map:
         ld      ix,(ram_pool)           ; our own $4000-$7FFF bank, if any
         ld      a,ixh                   ; (OS_Bye frees it too)
         or      ixl
@@ -342,9 +352,8 @@ l_dcal: jp      (hl)
 applname:       defm    "Rogue", 0
 argv:           defw    applname, 0
 win_err:        defb    1,'7','#','1',32,32,32+94,32+8,128,1,'2','C','1',0
-msg_nomem:      defm    "Rogue needs 24K of free memory.", 0
-msg_expanded:   defm    "Rogue needs an expanded Z88.", 0
-msg_banks:      defm    "Rogue: a bank is missing.", 0
+msg_nomem:      defm    "Rogue needs more memory.", 0   ; 24K free, an expanded Z88
+msg_banks:      defm    "Rogue: bank missing.", 0
 rb_sig:         defm    "RG88"          ; + the build stamp (mkcard.py)
                 defb    0, 0, 0, 0
 
@@ -392,5 +401,8 @@ __bss_end:
         SECTION bss_keep
 crt_sp: defs    2
 ram_pool: defs  2                       ; memory pool for $4000-$7FFF, or 0
+        PUBLIC  _z_upstairs, _z_mini
+_z_upstairs: defs 1                     ; stairs lead up too (options.c)
+_z_mini: defs   1                       ; the panel shows the mini map (zmap.c)
         SECTION KEEP_END
 __keep_end:

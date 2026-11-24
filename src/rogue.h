@@ -89,6 +89,7 @@ void z_newgame(void);              /* z88/rogue_crt0.asm */
 void z_try_restore(void);          /* save.c */
 void z_option(void);               /* options.c: the MENU's Options */
 extern int z_optcmd;
+extern char z_upstairs;		/* rogue_crt0.asm (bss_keep: kept over new games): MENU Options, Stairs up */
 #define ZSTATIC static
 #else
 #define ZSTATIC

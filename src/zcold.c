@@ -273,6 +273,8 @@ zline(int row)
     z_fp = zbuf;
 }
 
+static int z_lasthp;
+
 void
 z_status(int level, int gold, int hp, int maxhp, int str, int maxstr,
          int arm, int xlvl, long exp, const char *hunger)
@@ -285,5 +287,15 @@ z_status(int level, int gold, int hp, int maxhp, int str, int maxstr,
     z_fs("Arm "); zn(arm); zline(4);
     z_fs("Exp "); zn(xlvl); z_fs("/"); zlong(exp); zline(5);
     z_fs(hunger); zline(6);
+    if (z_mini && !z_mstat)             /* the map in the panel: lost hit */
+    {                                   /* points, or a change of strength,
+                                           armour, experience or hunger (not
+                                           at the start of a game): the stats */
+        if (z_lasthp && ((z_pdirty & 0x78) || hp < z_lasthp))  /* shows */
+            z_alert();
+        else
+            z_pdirty = 0;
+    }
+    z_lasthp = hp;
 }
 

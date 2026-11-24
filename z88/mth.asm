@@ -20,6 +20,7 @@ defc CMD_OPTS   = $82           ; (was o; the options are a topic now)
 defc CMD_MAP    = $83           ; -> M  (DIAMOND L: DIAMOND M is ENTER)
 defc CMD_REDRAW = $84           ; -> ^R
 defc CMD_QUIT   = $85           ; -> Q
+defc CMD_MINI   = $8E           ; Mini map (zoz.c)
 defc CMD_OPT    = $86           ; $86-$8D: options 0-7 (src/options.c z_option)
 
         defw    in_commands, in_help
@@ -43,9 +44,11 @@ in_commands:
         defb    1                       ; end of the Info topic
         mthcmd  (CMD_SAVE,   ["S"] , ["Save game"],     CMDF_HELP, (hlp_saving-in_help))
         mthcmd  (CMD_MAP,    ["L"] , ["Level map"],     CMDF_HELP, (hlp_screen-in_help))
+        mthcmd  (CMD_MINI,   ["N"] , ["Mini map"],      CMDF_HELP, (hlp_mini-in_help))
         mthcmd  (CMD_REDRAW, ["R"] , ["Redraw screen"], CMDF_HELP, (hlp_redraw-in_help))
         mthcmd  (CMD_QUIT,   ["Q"] , ["Quit"],          CMDF_HELP, (hlp_quit-in_help))
         defb    1                       ; end of the Game topic
+        mthcmd  (CMD_OPT+0, , ["Stairs up"],           CMDF_HELP, (hlp_o_up-in_help))
         mthcmd  (CMD_OPT+7, , ["Your name"],           CMDF_HELP, (hlp_o_name-in_help))
         defb    1                       ; end of the Options topic
         defb    0                       ; end of commands

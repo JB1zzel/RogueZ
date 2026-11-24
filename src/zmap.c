@@ -14,9 +14,12 @@
 #define ZSTATIC
 #endif
 #define ZD_ROW  1                       /* as in zcurses.c */
+#define NUMLINES_Z 23                   /* level rows 1-22 */
+static unsigned char z_mapon;           /* the mini map is in the panel */
 #define ZD_WALL 2
 
 extern unsigned char screen[ZSCR_ROWS][ZSCR_COLS], zblank[ZMAP_COLS];
+extern char zb_valid;                   /* zoz.c */
 extern unsigned char sdirty[24], sdlo[24], sdhi[24];
 extern unsigned char z_slo[ZSCR_ROWS], z_shi[ZSCR_ROWS];
 extern char full;
@@ -94,6 +97,40 @@ z_maprows(WINDOW *w, int top, int full)
     return mask;
 }
 #endif
+/*
+ * With the mini map in the panel, the top row shows the stats on one line
+ * when there is no message.
+ */
+static void
+z_mapline(void)
+{
+    ZSTATIC unsigned char *s;
+    ZSTATIC int r, n, c;
+
+    s = stdscr->_row[0];
+    for (c = 0; c < ZMAP_COLS && s[c] == ' '; c++)
+        ;
+    if (c < ZMAP_COLS)                  /* a message */
+        memcpy(screen[0], s, ZMAP_COLS);
+    else
+    {
+        c = 0;
+        for (r = 0; r < ZSCR_ROWS - 1; r++)
+        {
+            for (n = ZPANEL_W; n && z_panel[r][n - 1] <= ' '; n--)
+                ;
+            if (!n || c + n > ZMAP_COLS)
+                continue;
+            memcpy(&screen[0][c], z_panel[r], (size_t) n);
+            c += n + 2;
+        }
+        for (c = c ? c - 2 : 0; c < ZMAP_COLS; c++)   /* blank the rest */
+            screen[0][c] = ' ';
+    }
+    z_slo[0] = 0;
+    z_shi[0] = ZMAP_COLS - 1;
+}
+
 
 /*
  * Map screen: message row, 7 rows of the level from 'top', status panel.
@@ -121,7 +158,18 @@ z_compose_map(WINDOW *w_, int top_)
         z_pdirty = 0xFF;
     }
     mask = z_maprows(w, top, full);
-    if (z_pdirty)
+    if (z_mapon)
+    {
+        if (w == stdscr)
+        {
+            for (r = 1; r < NUMLINES_Z; r++)    /* the level rows that */
+                if (sdirty[r])                  /* changed */
+                    z_mini_row(r, stdscr->_row[r]);
+            z_mapline();                /* the top row */
+            mask |= 1;
+        }
+    }
+    else if (z_pdirty)
     {
         for (r = 0; r < ZSCR_ROWS; r++)
         {
@@ -158,7 +206,7 @@ z_compose_map(WINDOW *w_, int top_)
     }
 #endif
     note_shown = z_panel_note[0];
-    if (note_shown)
+    if (note_shown && !z_mapon)
         memcpy(&screen[ZSCR_ROWS - 1][ZPANEL_COL], z_panel_note, strlen(z_panel_note));
     if (full)
         z_span_all();
@@ -171,4 +219,73 @@ z_compose_map(WINDOW *w_, int top_)
     full = (w != stdscr);
     last_top = top;
     zb_show(screen, mask);
+}
+
+/*
+ * The mini map (z88/zmini.asm): the whole level in the panel's place.
+ */
+/* the panel shows the map when it is chosen (z_mini) and nothing has called
+ * for the stats lately: z_mstat counts down the turns they stay */
+unsigned char z_mstat;
+
+void
+z_mini_init(void)                       /* zb_init: the screen is new */
+{
+    ZSTATIC int y;
+
+    z_lastc = ZSCR_COLS - 1;
+    z_mapon = 0;
+    if (!z_mini || z_mstat)
+        return;
+    z_mapon = 1;
+    z_lastc = ZMAP_COLS - 1;            /* window 2 and the map: the panel */
+    z_mini_open();
+    for (y = 1; y < NUMLINES_Z; y++)
+        z_mini_row(y, stdscr->_row[y]);
+}
+
+static void
+z_panel_set(void)                       /* the map or the stats, as chosen, */
+{                                       /* without clearing the screen */
+    if (z_mapon)                        /* the map gives way to the stats */
+    {
+        z_mini_close();
+        z_mapon = 0;
+        z_lastc = ZSCR_COLS - 1;
+        zb_valid = 0;                   /* every row rewritten, whole (the */
+        z_pdirty = 0xFF;                /* map's cells too), not cleared */
+        full = 1;
+        wrefresh(stdscr);
+    }
+    else
+        z_mini_init();                  /* the map, if chosen and quiet */
+}
+
+void
+z_mini_toggle(void)                     /* DIAMOND N, MENU Mini map */
+{
+    z_mini = !z_mini;
+    z_mstat = 0;
+    z_panel_set();
+    wrefresh(stdscr);
+}
+
+void
+z_alert(void)                           /* a fight, or the stats changed: */
+{                                       /* show them for 10 turns */
+    if (!z_mini)
+        return;
+    if (!z_mstat)
+    {
+        z_mstat = 10;
+        z_panel_set();
+    }
+    z_mstat = 10;
+}
+
+void
+z_tick(void)                            /* each turn (command.c) */
+{
+    if (z_mstat && !--z_mstat)
+        z_panel_set();
 }

@@ -256,7 +256,7 @@ void
 z_span_all(void)
 {
     memset(z_slo, 0, sizeof z_slo);
-    memset(z_shi, ZSCR_COLS - 1, sizeof z_shi);
+    memset(z_shi, z_lastc, sizeof z_shi);     /* not over the mini map */
 }
 
 

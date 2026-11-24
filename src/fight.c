@@ -66,6 +66,9 @@ fight(coord *mp, THING *weap, bool thrown)
     register THING *tp;
     register bool did_hit = TRUE;
     register char *mname, ch;
+#ifdef __Z88__
+    z_alert();			/* a fight: the stats in the panel */
+#endif
 
     /*
      * Find the monster we want to fight
@@ -141,6 +144,9 @@ attack(THING *mp)
 {
     register char *mname;
     register int oldhp;
+#ifdef __Z88__
+    z_alert();			/* a fight: the stats in the panel */
+#endif
 
     /*
      * Since this is an attack, stop running and any healing that was

@@ -60,6 +60,16 @@ extern int LINES, COLS;
  * full-screen text drawn on stdscr (tombstone, quit) shown as rows 0-7 */
 extern int z_mapmode;
 extern char z_panel_note[];
+extern char z_mini;                 /* rogue_crt0.asm: the panel shows the mini map */
+extern unsigned char z_lastc;       /* z88/hot.asm: last screen column written */
+void z_mini_open(void);             /* z88/zmini.asm */
+void z_mini_close(void);
+void z_mini_row(int y, unsigned char *row);
+void z_mini_init(void);             /* zmap.c */
+void z_mini_toggle(void);
+void z_alert(void);
+void z_tick(void);
+extern unsigned char z_mstat;
 
 WINDOW *initscr(void);
 int  endwin(void);

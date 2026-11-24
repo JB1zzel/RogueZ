@@ -33,14 +33,16 @@ ASMDIR = os.environ.get('ROGUE_BUILD', os.path.join(HERE, '..', 'build-size'))
 CALLS = os.path.join(HERE, 'calls.json')
 BANK = 16384
 RESERVE = 48            # per bank: its signature (16 bytes), estimate slack
-DATA_RESERVE = 3328     # the last bank also holds the first values of the
+STUBW = float(os.environ.get('ROGUE_STUBW', '100'))  # cost of a stub
+DATA_RESERVE = 3712     # the last bank also holds the first values of the
                         # initialised data, packed, and the MENU and help
                         # (tools/mkcard.py)
 RESIDENT_MODULES = {'io', 'zcurses', 'list', 'md', 'resident', 'zoz', 'zmach', 'zterm', 'zview', 'daemon'}
 GROUPS = [{'pack', 'things'},   # must share a bank: add_line keeps pack's strings
           {'misc', 'zlook'},    # look() (z88/zlook.asm) with trip_ch, erase_lamp
           {'save', 'zsave'},    # saved games (z88/zsave.asm) with save.c
-          {'zcold', 'zfmt'}]    # panel formatting (z88/zfmt.asm) with z_status
+          {'zcold', 'zfmt'},    # panel formatting (z88/zfmt.asm) with z_status
+          {'zmap', 'zmini'}]    # the mini map (z88/zmini.asm) with the screen
 SHARED_RODATA = {'extern'}   # tables whose pointers are kept and used anywhere -> S2
 LIB_ESTIMATE = 5000     # library in S2 (3.5K measured lower bound, 4-8K)
 
@@ -153,8 +155,18 @@ def main():
         os.path.dirname(os.path.abspath(__file__)), '..', 'z88', 'rogue_crt0.asm')).read()).group(1))
     caps = [cap] * (k - 1) + [cap - DATA_RESERVE]
 
+    # each function called from another bank needs a resident stub
+    callers = collections.defaultdict(set)
+    for (a, b) in static:
+        ua, ub = unit_of(a), unit_of(b)
+        if ua and ub and ua != ub:
+            callers[(b, ub)].add(ua)
+    callers = [(ub, tuple(us)) for (b, ub), us in callers.items()]
+
     def cost(assign):
-        return sum(n for (a, b), n in w.items() if assign[a] != assign[b])
+        stubs = sum(1 for ub, us in callers
+                    if any(assign[u] != assign[ub] for u in us))
+        return sum(n for (a, b), n in w.items() if assign[a] != assign[b]) + STUBW * stubs
 
     def fill(assign):
         f = collections.Counter()

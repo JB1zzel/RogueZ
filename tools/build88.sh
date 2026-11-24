@@ -22,7 +22,7 @@ for f in $B/asm/*.c; do
   (cd $B/asm && zcc +z88 -O3 $opt -DHAVE_CONFIG_H $ROGUE_CFLAGS -I. -a $m.c -o $m.asm) &
 done
 wait
-cp z88/zlook.asm z88/zsave.asm z88/zfmt.asm $B/asm/   # by hand, banked like the C modules
+cp z88/zlook.asm z88/zsave.asm z88/zfmt.asm z88/zmini.asm $B/asm/   # by hand, banked like the C modules
 export ROGUE_BUILD=$B/asm ROGUE_OUT=$B/banked
 python3 tools/sxtcheck.py $B/asm
 python3 tools/banks.py --json $B/asm/banks.json > $B/banks-report.txt

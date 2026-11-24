@@ -133,9 +133,16 @@ int z_optcmd;
 
 void
 z_option(void)
-{  /* the MENU offers only the name (7) */
+{  /* the MENU offers the stairs (0) and the name (7) */
     int r;
 
+    if (z_optcmd == 0)
+    {
+        z_upstairs = !z_upstairs;
+        msg(z_upstairs ? "the stairs now lead up as well as down"
+                       : "the stairs lead only down (up with the Amulet)");
+        return;
+    }
     if (z_optcmd != 7)
         return;
     msg("What is your name? ");

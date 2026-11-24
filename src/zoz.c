@@ -36,6 +36,7 @@ zb_init(void)
 {
     oz_sop(winit);
     zb_valid = 0;
+    z_mini_init();                      /* zmap.c: the mini map, if on */
 }
 
 void
@@ -75,6 +76,9 @@ zb_getkey(void)
             case 0x83: return 'M';
             case 0x84: return 'R' & 037;
             case 0x85: return 'Q';
+            case 0x8E:                  /* MENU Mini map: no turn */
+                z_mini_toggle();
+                continue;
             }
             if (k >= 0x86 && k <= 0x8D)   /* MENU Options: command.c, ^^ */
             {

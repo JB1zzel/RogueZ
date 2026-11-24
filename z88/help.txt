@@ -10,10 +10,10 @@ Moving, fighting, things, the screen and saving.
 Save, see the whole level, redraw or quit.
 
 @hlp_opts
-Your name, for the tombstone.
+Stairs that lead up too, and your name for the tombstone.
 
 @hlp_aim
-Rooms are joined by passages. Find the stairs (%) and press > to go down. Gold, potions, scrolls, rings, wands, armour and weapons lie about; monsters (letters) get stronger deeper down. With the Amulet, < goes back up.
+Rooms are joined by passages. Find the stairs (%) and press > to go down. Gold, potions, scrolls, rings, wands, armour and weapons lie about; monsters (letters) get stronger deeper down. With the Amulet, < goes back up (or always, with Stairs up in Options).
 
 @hlp_moving
 Cursor keys or h j k l (y u b n diagonally) move. {SHIFT} and a direction runs; {DIAMOND} and a cursor key runs until something turns up. s searches for hidden doors and traps; > and < use stairs.
@@ -30,6 +30,9 @@ i lists what you carry. q quaff, r read, e eat, w wield, W wear, T take off armo
 @hlp_screen
 Messages are on the top line; the map below follows you; your state is on the right. M (or {DIAMOND}L) shows the whole level, 7 rows at a time (j and k move).
 
+@hlp_mini
+{DIAMOND}N: the panel shows the level you have seen; your state is on the top line, or the panel in a fight.
+
 @hlp_saving
 S (or {DIAMOND}S) saves to rogue.sav and play goes on. Rogue offers the saved game when it starts; once restored, the file is deleted. After you die, a new game starts.
 
@@ -38,6 +41,9 @@ Draw the screen again.
 
 @hlp_quit
 Give up this game (Rogue asks first). The application closes.
+
+@hlp_o_up
+Choose it to turn it on or off. On, < on the stairs takes you up to a new level (not from the first): a way out of trouble, or to search more levels for food and things. Off, as in the original game, only the Amulet takes you up. It stays set until Rogue closes.
 
 @hlp_o_name
 Type your name. DEL rubs out, ENTER finishes, ESC keeps the old one.

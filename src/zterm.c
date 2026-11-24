@@ -239,3 +239,11 @@ z_beep(void)
     if (keyf == NULL && !pipemode)
         putchar(7);
 }
+
+/* the mini map is the Z88's (z88/zmini.asm) */
+char z_mini;
+unsigned char z_lastc = ZSCR_COLS - 1;
+char zb_valid;
+void z_mini_open(void) { }
+void z_mini_close(void) { }
+void z_mini_row(int y, unsigned char *row) { (void) y; (void) row; }

@@ -107,9 +107,14 @@ def main():
             for f in re.findall(r'(?<![\w.])_(\w+)\b', s):
                 if f in banked and not re.search(r'\bcall\b', s) and not s.strip().startswith(('GLOBAL', '.')):
                     problems.append('%s: address of %s not through a stub: %s' % (mod, f, s.strip()))
-    # main() is called from the start-up code (z88/rogue_crt0.asm)
+    # main() is called from the start-up code (z88/rogue_crt0.asm); the
+    # resident hand-written code calls banked C through far_NAME stubs
     if 'main' in banked:
         targets.add('main')
+    for hand in ('hot.asm', 'rogue_crt0.asm', 'farcall.asm'):
+        for f in re.findall(r'\bfar_(\w+)', open(os.path.join(HERE, '..', 'z88', hand)).read()):
+            if f in banked:
+                targets.add(f)
     # stubs
     lines = ['; farstubs.asm - far-call stubs (tools/farify.py).  Resident.',
              '; far_foo: bind foo\'s bank, call foo, bind the caller\'s bank again.',

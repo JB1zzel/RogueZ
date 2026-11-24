@@ -162,7 +162,7 @@ zs_lfound:
 zs_all:
         xor     a
         ld      (zs_f0),a
-        ld      a,COLS - 1
+        ld      a,(_z_lastc)            ; 93, or 79 with the mini map
         ld      (zs_l0),a
 zs_build:
         ; VDU: 1,'3','@',32+f,32+r
@@ -1040,6 +1040,7 @@ zw_dash:
         ld      hl,(zw_up)
         add     hl,de
         ld      a,(hl)
+        ld      b,-1                    ; (the row above)
         call    zw_isv
         jr      nz,zw_1
         ld      c,ZW_U
@@ -1047,6 +1048,7 @@ zw_1:
         ld      hl,(zw_dn)
         add     hl,de
         ld      a,(hl)
+        ld      b,1                     ; (the row below)
         call    zw_isv
         jr      nz,zw_2
         ld      a,c
@@ -1064,6 +1066,7 @@ zw_2:
         dec     hl
         ld      a,(hl)
         inc     hl
+        ld      b,-1                    ; (the column to the left)
         call    zw_ish
         jr      nz,zw_3
         ld      a,c
@@ -1076,6 +1079,7 @@ zw_3:
         inc     hl
         ld      a,(hl)
         dec     hl
+        ld      b,1                     ; (the column to the right)
         call    zw_ish
         jr      nz,zw_4
         ld      a,c
@@ -1094,15 +1098,51 @@ zw_put:
         pop     bc
         jr      zw_put0
 
-zw_isv:                                 ; z if a is '|' or a door
-        cp      '|'
+zw_isv:                                 ; z if a is '|' or a door, or the
+        cp      '|'                     ; hero or a monster standing on a
+        ret     z                       ; door (b: the row, -1 or 1)
+        cp      '+'
+        ret     z
+        push    hl
+        ld      h,b
+        ld      l,0
+        jr      zw_who
+zw_ish:                                 ; z if a is '-' or a door, or someone
+        cp      '-'                     ; on a door (b: the column, -1 or 1)
         ret     z
         cp      '+'
+        ret     z
+        push    hl
+        ld      h,0
+        ld      l,b
+zw_who:                                 ; a letter or '@' there (h, l: the
+        cp      '@'                     ; row and column from this cell):
+        jr      c,zw_no                 ; is it on a door? (else the corner
+        cp      'Z' + 1                 ; next to a doorway drew straight)
+        jr      nc,zw_no
+        push    de
+        push    bc
+        ld      a,(mr_wrow)
+        add     a,h
+        ld      c,a
+        ld      b,0
+        push    bc                      ; y
+        ld      a,e
+        add     a,l
+        ld      l,a
+        ld      h,0
+        push    hl                      ; x
+        call    far_z_isdoor            ; (misc.c: chat(y, x) == DOOR)
+        pop     bc
+        pop     bc
+        ld      a,l
+        pop     bc
+        pop     de
+        pop     hl
+        dec     a                       ; z: a door
         ret
-zw_ish:                                 ; z if a is '-' or a door
-        cp      '-'
-        ret     z
-        cp      '+'
+zw_no:  pop     hl
+        or      1                       ; nz (a may be 0: no row there)
         ret
 
         SECTION bss_resident
@@ -1117,7 +1157,7 @@ zw_hi:  defs    1
 ; only the columns that changed; returns the rows touched.
 
         PUBLIC  _z_maprows
-        EXTERN  _screen, _zblank
+        EXTERN  _screen, _zblank, far_z_isdoor
         defc    MR_COLS = 94            ; ZSCR_COLS
 
         SECTION code_resident
@@ -1423,3 +1463,9 @@ mr_valid: defs  1
 mr_wrow:  defs  1
 mr_lo:    defs  1
 mr_hi:    defs  1
+
+
+        SECTION bss_resident
+        PUBLIC  _z_lastc
+_z_lastc:       defs    1               ; zb_show's last column: 93, or 79
+                                        ; with the mini map (zmap.c)

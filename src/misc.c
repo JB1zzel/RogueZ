@@ -567,3 +567,13 @@ rnd_thing()
     return thing_list[i];
 }
 
+
+/*
+ * z88/hot.asm (z_walls): the hero or a monster on a door beside a corner
+ * still makes it a corner.
+ */
+int
+z_isdoor(int y, int x)
+{
+    return chat(y, x) == DOOR;
+}

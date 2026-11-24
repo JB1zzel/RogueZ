@@ -312,6 +312,55 @@ center(char *str)
 
 void
 total_winner()
+#ifdef __Z88__
+{   /* Z88: a short screen (the original's 13-row banner and item list do not
+       fit 8 rows); the loot is valued more simply (below) */
+    THING *obj;
+    struct obj_info *op;
+    int worth = 0;
+    int oldpurse;
+
+    z_mapmode = 0;
+    clear();
+    addstr("You have made it to the light of day! You sell all your loot\n");
+    addstr("at a great profit and are admitted to the Fighters' Guild.\n");
+    oldpurse = purse;
+    for (obj = pack; obj != NULL; obj = next(obj))
+    {   /* Z88: simpler than the original (no bonus for enchantment or
+           charges): the worth of its kind, for each, half if the kind is
+           not known */
+	op = NULL;
+	worth = 0;
+	switch (obj->o_type)
+	{
+	    case FOOD:
+		worth = 2 * obj->o_count;
+	    when WEAPON: op = weap_info;
+	    when ARMOR:  op = arm_info;
+	    when SCROLL: op = scr_info;
+	    when POTION: op = pot_info;
+	    when RING:   op = ring_info;
+	    when STICK:  op = ws_info;
+	    when AMULET:
+		worth = 1000;
+	}
+	if (op != NULL)
+	{
+	    op += obj->o_which;
+	    worth = op->oi_worth * obj->o_count;
+	    if (!op->oi_know)
+		worth /= 2;
+	}
+	purse += worth;
+    }
+    printw("\nYour loot fetched %d gold pieces; you have %d.\n", purse - oldpurse, purse);
+    mvaddstr(LINES - 1, 0, "--Press space to continue--");
+    refresh();
+    wait_for(' ');
+    score(purse, 2, ' ');
+    z_newgame();
+}
+#else
 {
     THING *obj;
     struct obj_info *op;
@@ -410,6 +459,7 @@ total_winner()
     my_exit(0);
 #endif
 }
+#endif
 
 /*
  * killname:

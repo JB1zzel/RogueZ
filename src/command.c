@@ -127,6 +127,9 @@ command()
 	look(TRUE);
 	if (!running)
 	    door_stop = FALSE;
+#ifdef __Z88__
+	z_tick();			/* the stats back to the mini map */
+#endif
 	status();
 	lastscore = purse;
 	move(hero.y, hero.x);
@@ -787,7 +790,11 @@ u_level()
     if (levit_check())
 	return;
     if (chat(hero.y, hero.x) == STAIRS)
+#ifdef __Z88__
+	if (amulet || (z_upstairs && level > 1))   /* MENU Options: Stairs up */
+#else
 	if (amulet)
+#endif
 	{
 	    level--;
 	    if (level == 0)
